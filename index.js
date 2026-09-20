@@ -22,20 +22,21 @@ app.post('/changerank', async (req, res) => {
         // 1. Oyuncunun ID'sini al
         const userId = await noblox.getIdFromUsername(playerName);
 
-        // 2. Rütbeyi değiştir (Bu işlem eski ve yeni rol isimlerini otomatik döndürür)
-        const rankResult = await noblox.setRank(GROUP_ID, userId, Number(newRank));
-        console.log("[SONUC]:", rankResult);
+        // 2. Rütbe DEĞİŞMEDEN ÖNCE eski rolünün adını çek
+        let oldRole = "Bilinmiyor";
+        try {
+            oldRole = await noblox.getRoleInGroup(GROUP_ID, userId);
+        } catch (e) {
+            console.log("Eski rol alinamadi:", e.message);
+        }
 
-        // Rol isimlerini güvenli şekilde al
-        const oldRole = (rankResult && rankResult.oldRole && rankResult.oldRole.name) 
-            ? rankResult.oldRole.name 
-            : "Bilinmiyor";
+        // 3. Rütbeyi değiştir (setRank doğrudan yeni rol objesini döndürür)
+        const newRoleObj = await noblox.setRank(GROUP_ID, userId, Number(newRank));
+        const newRole = (newRoleObj && newRoleObj.name) ? newRoleObj.name : "Bilinmiyor";
 
-        const newRole = (rankResult && rankResult.newRole && rankResult.newRole.name) 
-            ? rankResult.newRole.name 
-            : "Bilinmiyor";
+        console.log(`[BAŞARILI] ${playerName}: ${oldRole} -> ${newRole}`);
 
-        // 3. Discord Webhook Gönderimi
+        // 4. Discord Webhook Gönderimi
         if (DISCORD_WEBHOOK_URL) {
             const embedData = {
                 username: "VTN Rütbe Log Sistemi",
