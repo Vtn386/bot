@@ -18,50 +18,26 @@ app.post('/changerank', async (req, res) => {
     try {
         const { adminName, playerName, newRank } = req.body;
 
+        // 1. Oyuncunun Roblox ID'sini al
         const userId = await noblox.getIdFromUsername(playerName);
 
-        // Grubun tüm rol listesini çekiyoruz (Yedek kontrol için)
-        let groupRoles = [];
-        try {
-            groupRoles = await noblox.getRoles(GROUP_ID);
-        } catch(e) {}
+        // 2. Grubun tüm rollerini çek
+        const roles = await noblox.getRoles(GROUP_ID);
 
-        // Değişim öncesi eski rol adını öğreniyoruz
-        let oldRole = "Bilinmiyor";
-        try {
-            oldRole = await noblox.getRoleInGroup(GROUP_ID, userId);
-        } catch(err) {}
+        // 3. Eski rütbe numarasını al (0-255) ve ismini listeden eşleştir
+        const oldRankNum = await noblox.getRankInGroup(GROUP_ID, userId);
+        const oldRoleObj = roles.find(r => r.rank === oldRankNum);
+        const oldRole = oldRoleObj ? oldRoleObj.name : "Grupta Değil / Misafir";
 
-        // Rütbeyi değiştiriyoruz
-        const rankResult = await noblox.setRank(GROUP_ID, userId, Number(newRank));
+        // 4. Yeni rütbenin ismini listeden eşleştir
+        const targetRankNum = Number(newRank);
+        const newRoleObj = roles.find(r => r.rank === targetRankNum || r.id === targetRankNum);
+        const newRole = newRoleObj ? newRoleObj.name : `Rütbe ID: ${targetRankNum}`;
 
-        // Yeni ve eski rol adlarını doğrula
-        let newRole = "Bilinmiyor";
+        // 5. Rütbeyi Roblox'ta güncelle
+        await noblox.setRank(GROUP_ID, userId, targetRankNum);
 
-        // 1. Yol: setRank fonksiyonunun kendi çıktısından rol adlarını al
-        if (rankResult && rankResult.newRole && rankResult.newRole.name) {
-            newRole = rankResult.newRole.name;
-            if (rankResult.oldRole && rankResult.oldRole.name) {
-                oldRole = rankResult.oldRole.name;
-            }
-        } else if (rankResult && rankResult.name) {
-            newRole = rankResult.name;
-        }
-
-        // 2. Yol: Eğer hala Bilinmiyor ise gruptaki rol listesinden yeni rütbe ID'sine göre adını bul
-        if (newRole === "Bilinmiyor" && groupRoles.length > 0) {
-            const found = groupRoles.find(r => r.rank === Number(newRank) || r.id === Number(newRank));
-            if (found) newRole = found.name;
-        }
-
-        // 3. Yol: Son çare tekrar getir
-        if (newRole === "Bilinmiyor") {
-            try {
-                newRole = await noblox.getRoleInGroup(GROUP_ID, userId);
-            } catch(e) {}
-        }
-
-        // Discord Webhook Bildirimi
+        // 6. Discord Webhook Gönder
         if (DISCORD_WEBHOOK_URL) {
             const embedData = {
                 username: "VTN Rütbe Log Sistemi",
