@@ -22,15 +22,15 @@ app.post('/changerank', async (req, res) => {
         // 1. Oyuncunun ID'sini al
         const userId = await noblox.getIdFromUsername(playerName);
 
-        // 2. Rütbe DEĞİŞMEDEN ÖNCE eski rolünün adını çek
+        // 2. Rütbe DEĞİŞMEDEN ÖNCE eski rol adını al (Doğru komut: getRankNameInGroup)
         let oldRole = "Bilinmiyor";
         try {
-            oldRole = await noblox.getRoleInGroup(GROUP_ID, userId);
+            oldRole = await noblox.getRankNameInGroup(GROUP_ID, userId);
         } catch (e) {
             console.log("Eski rol alinamadi:", e.message);
         }
 
-        // 3. Rütbeyi değiştir (setRank doğrudan yeni rol objesini döndürür)
+        // 3. Rütbeyi değiştir
         const newRoleObj = await noblox.setRank(GROUP_ID, userId, Number(newRank));
         const newRole = (newRoleObj && newRoleObj.name) ? newRoleObj.name : "Bilinmiyor";
 
