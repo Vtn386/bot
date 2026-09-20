@@ -19,15 +19,15 @@ app.post('/changerank', async (req, res) => {
         const { adminName, playerName, newRank } = req.body;
 
         const userId = await noblox.getIdFromUsername(playerName);
-        
+
         // Değişimden önceki eski rol adını alıyoruz
         let oldRole = "Bilinmiyor";
         try {
             oldRole = await noblox.getRoleInGroup(GROUP_ID, userId);
         } catch(err) {}
 
-        // Rütbeyi güncelliyoruz (setRole çakışmaları önler)
-        await noblox.setRole(GROUP_ID, userId, Number(newRank));
+        // Rütbeyi güncelliyoruz (Doğru komut: setRank)
+        await noblox.setRank(GROUP_ID, userId, Number(newRank));
 
         // Değişimden sonraki yeni rol adını alıyoruz
         let newRole = "Bilinmiyor";
