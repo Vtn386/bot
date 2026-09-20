@@ -20,31 +20,57 @@ app.post('/changerank', async (req, res) => {
 
         const userId = await noblox.getIdFromUsername(playerName);
 
-        // Değişimden önceki eski rol adını alıyoruz
+        // Grubun tüm rol listesini çekiyoruz (Yedek kontrol için)
+        let groupRoles = [];
+        try {
+            groupRoles = await noblox.getRoles(GROUP_ID);
+        } catch(e) {}
+
+        // Değişim öncesi eski rol adını öğreniyoruz
         let oldRole = "Bilinmiyor";
         try {
             oldRole = await noblox.getRoleInGroup(GROUP_ID, userId);
         } catch(err) {}
 
-        // Rütbeyi güncelliyoruz (Doğru komut: setRank)
-        await noblox.setRank(GROUP_ID, userId, Number(newRank));
+        // Rütbeyi değiştiriyoruz
+        const rankResult = await noblox.setRank(GROUP_ID, userId, Number(newRank));
 
-        // Değişimden sonraki yeni rol adını alıyoruz
+        // Yeni ve eski rol adlarını doğrula
         let newRole = "Bilinmiyor";
-        try {
-            newRole = await noblox.getRoleInGroup(GROUP_ID, userId);
-        } catch(err) {}
 
-        // Discord Webhook Bildirimi Gönderme
+        // 1. Yol: setRank fonksiyonunun kendi çıktısından rol adlarını al
+        if (rankResult && rankResult.newRole && rankResult.newRole.name) {
+            newRole = rankResult.newRole.name;
+            if (rankResult.oldRole && rankResult.oldRole.name) {
+                oldRole = rankResult.oldRole.name;
+            }
+        } else if (rankResult && rankResult.name) {
+            newRole = rankResult.name;
+        }
+
+        // 2. Yol: Eğer hala Bilinmiyor ise gruptaki rol listesinden yeni rütbe ID'sine göre adını bul
+        if (newRole === "Bilinmiyor" && groupRoles.length > 0) {
+            const found = groupRoles.find(r => r.rank === Number(newRank) || r.id === Number(newRank));
+            if (found) newRole = found.name;
+        }
+
+        // 3. Yol: Son çare tekrar getir
+        if (newRole === "Bilinmiyor") {
+            try {
+                newRole = await noblox.getRoleInGroup(GROUP_ID, userId);
+            } catch(e) {}
+        }
+
+        // Discord Webhook Bildirimi
         if (DISCORD_WEBHOOK_URL) {
             const embedData = {
                 username: "VTN Rütbe Log Sistemi",
                 embeds: [{
                     title: "🛡️ Grup Rütbesi Değiştirildi",
-                    color: 3066993, // Yeşil renk
+                    color: 3066993, // Yeşil
                     fields: [
-                        { name: "👤 İşlemi Yapan Yetkili", value: adminName || "Bilinmiyor", inline: true },
-                        { name: "🎯 Hedef Oyuncu", value: playerName, inline: true },
+                        { name: "👤 İşlemi Yapan Yetkili", value: String(adminName || "Bilinmiyor"), inline: true },
+                        { name: "🎯 Hedef Oyuncu", value: String(playerName), inline: true },
                         { name: "\u200B", value: "\u200B", inline: false },
                         { name: "🔴 Eski Rütbe", value: String(oldRole), inline: true },
                         { name: "🟢 Yeni Rütbe", value: String(newRole), inline: true }
