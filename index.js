@@ -9,7 +9,7 @@ const COOKIE = process.env.ROBLOSECURITY;
 const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL;
 
 noblox.setCookie(COOKIE, false).then(() => {
-    console.log("Cookie yuklendi (Dogrulama atlandi)!");
+    console.log("Bot hazir!");
 }).catch((err) => {
     console.error("Giris hatasi:", err.message);
 });
@@ -17,27 +17,25 @@ noblox.setCookie(COOKIE, false).then(() => {
 app.post('/changerank', async (req, res) => {
     try {
         const { adminName, playerName, newRank } = req.body;
+        console.log(`[ISTEK] Yetkili: ${adminName} | Hedef: ${playerName} | Yeni Rank: ${newRank}`);
 
-        // 1. Oyuncunun Roblox ID'sini al
+        // 1. Oyuncunun ID'sini al
         const userId = await noblox.getIdFromUsername(playerName);
 
-        // 2. Grubun tüm rollerini çek
-        const roles = await noblox.getRoles(GROUP_ID);
+        // 2. Rütbeyi değiştir (Bu işlem eski ve yeni rol isimlerini otomatik döndürür)
+        const rankResult = await noblox.setRank(GROUP_ID, userId, Number(newRank));
+        console.log("[SONUC]:", rankResult);
 
-        // 3. Eski rütbe numarasını al (0-255) ve ismini listeden eşleştir
-        const oldRankNum = await noblox.getRankInGroup(GROUP_ID, userId);
-        const oldRoleObj = roles.find(r => r.rank === oldRankNum);
-        const oldRole = oldRoleObj ? oldRoleObj.name : "Grupta Değil / Misafir";
+        // Rol isimlerini güvenli şekilde al
+        const oldRole = (rankResult && rankResult.oldRole && rankResult.oldRole.name) 
+            ? rankResult.oldRole.name 
+            : "Bilinmiyor";
 
-        // 4. Yeni rütbenin ismini listeden eşleştir
-        const targetRankNum = Number(newRank);
-        const newRoleObj = roles.find(r => r.rank === targetRankNum || r.id === targetRankNum);
-        const newRole = newRoleObj ? newRoleObj.name : `Rütbe ID: ${targetRankNum}`;
+        const newRole = (rankResult && rankResult.newRole && rankResult.newRole.name) 
+            ? rankResult.newRole.name 
+            : "Bilinmiyor";
 
-        // 5. Rütbeyi Roblox'ta güncelle
-        await noblox.setRank(GROUP_ID, userId, targetRankNum);
-
-        // 6. Discord Webhook Gönder
+        // 3. Discord Webhook Gönderimi
         if (DISCORD_WEBHOOK_URL) {
             const embedData = {
                 username: "VTN Rütbe Log Sistemi",
@@ -64,7 +62,7 @@ app.post('/changerank', async (req, res) => {
 
         res.send("Basarili");
     } catch (e) {
-        console.error("Rütbe değiştirme hatası:", e.message);
+        console.error("[HATA]:", e.message);
         res.status(500).send(e.message);
     }
 });
